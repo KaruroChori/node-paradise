@@ -1,11 +1,16 @@
 export const contextual = function (
 	node: HTMLElement,
-	opts: { container: Element | Window | undefined; target: Element | Window | undefined }
+	opts: {
+		container: Element | Window;
+		target: Element | Window | undefined;
+		attach: 'top' | 'bottom' | 'left' | 'right' | 'cursor';
+		align: 'start' | 'finish' | 'middle';
+	}
 ) {
-	console.log(opts.target, node.parentNode, opts.target, window);
+	console.log(opts.target, node.parentElement, opts.target, window);
 	opts = {
 		container: opts.container ?? window,
-		target: opts.target ?? node.parentNode ?? opts.container ?? window,
+		target: opts.target ?? node.parentElement ?? opts.container ?? window,
 		attach: opts.attach ?? 'cursor',
 		align: opts.align ?? 'start'
 	};
@@ -24,7 +29,7 @@ export const contextual = function (
 		console.log('stopped');
 	};
 
-	const redraw = (e: MouseEvent | undefined) => {
+	const redraw = (e: MouseEvent) => {
 		if (e == undefined) {
 			e = {
 				layerX: parseInt(node.style.getPropertyValue('--layer-x')),
@@ -45,7 +50,7 @@ export const contextual = function (
 
 		let mul = 0.5;
 		if (opts.align === 'start') mul = 0;
-		else if (opts.align === 'end') mul = 1;
+		else if (opts.align === 'finish') mul = 1;
 		else if (opts.align === 'middle') mul = 0.5;
 		else mul = opts.align;
 

@@ -12,34 +12,39 @@
 	import { browser } from '$app/environment';
 
 	let root;
+	let side;
 </script>
 
-<div class="container" bind:this={root}>
-	<nav class="toolbar">
-		<slot name="toolbar" />
-		<section style="flex-grow:2" />
-		<section>
-			<AwaitButton
-				tip="Workflows"
-				icon="carbon:ibm-process-mining"
-				op={async () => goto('/workflows')}
-			/>
-			<AwaitButton tip="Canvas" icon="system-uicons:write" op={async () => goto('/canvas')} />
-			<AwaitButton tip="Tasks" icon="carbon:task-asset-view" op={async () => goto('/tasks')} />
-			<AwaitButton tip="Config" icon="mdi:gear" op={async () => goto('/settings')} />
-			<AwaitButton tip="Logs" icon="icon-park-outline:log" op={async () => goto('/docs')} />
+<div class="content">
+	<div class="container" bind:this={root}>
+		<nav class="toolbar">
+			<slot name="toolbar" />
+			<section style="flex-grow:2" />
+			<section>
+				<AwaitButton
+					tip="Workflows"
+					icon="carbon:ibm-process-mining"
+					op={async () => goto('/workflows')}
+				/>
+				<AwaitButton tip="Canvas" icon="system-uicons:write" op={async () => goto('/canvas')} />
+				<AwaitButton tip="Tasks" icon="carbon:task-asset-view" op={async () => goto('/tasks')} />
+				<AwaitButton tip="Config" icon="mdi:gear" op={async () => goto('/settings')} />
+				<AwaitButton tip="Logs" icon="icon-park-outline:log" op={async () => goto('/docs')} />
 
-			<AwaitButton
-				tip="Help"
-				icon="ic:outline-live-help"
-				op={async () => /*goto('/about')*/ dialog?.alert('Temporary help message')}
-			/>
-		</section>
-	</nav>
-	<main><slot /></main>
-	<nav class="tabbar">
-		<slot name="tabbar" />
-	</nav>
+				<AwaitButton
+					tip="Help"
+					icon="ic:outline-live-help"
+					op={async () => /*goto('/about')*/ dialog?.alert('Temporary help message')}
+				/>
+			</section>
+		</nav>
+		<main><slot /></main>
+		<nav class="tabbar">
+			<slot name="tabbar" />
+		</nav>
+	</div>
+	<!-- Documentation area-->
+	<div class="side" bind:this={side} />
 </div>
 <ToastArea />
 <slot name="dialog-area" />
@@ -100,7 +105,24 @@
 		}
 	}
 
+	.content {
+		display: flex;
+		flex-direction: row;
+		--SIDE-SIZE: 0cqw;
+	}
+
 	.container {
+		display: flex;
+		flex-direction: column;
+		background-color: transparent;
+		flex-wrap: nowrap;
+		align-items: stretch;
+		height: 100cqh;
+		justify-content: space-between;
+		width: calc(100cqw - var(--SIDE-SIZE));
+	}
+
+	.side {
 		display: flex;
 		flex-direction: column;
 		background-color: transparent;

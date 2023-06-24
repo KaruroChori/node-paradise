@@ -10,13 +10,10 @@
 	export let attach: 'top' | 'bottom' | 'left' | 'right' | 'cursor' = 'cursor';
 	export let align: 'start' | 'finish' | 'middle' = 'start';
 
-	export let items: unknown | undefined = undefined;
+	//export let items: unknown | undefined = undefined;
 </script>
 
-<div
-	use:contextual={{ container: container, target: target, attach: attach, align: align }}
-	class="contextualMenu"
->
+<div use:contextual={{ container, target, attach, align }} class="contextualMenu">
 	<!--<ToolArea flow="vertical" {items} />-->
 	<slot />
 </div>

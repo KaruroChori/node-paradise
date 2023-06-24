@@ -16,6 +16,7 @@
 	import MetadataDialog from '$lib/dialogs/MetadataDialog.svelte';
 	import FilesDialog from '$lib/dialogs/FilesDialog.svelte';
 	import { run } from 'svelte/internal';
+	import { workflowsState } from '../../state/workflows';
 
 	export class entry_t<T extends object, dT> {
 		uid: string;
@@ -43,12 +44,18 @@
 
 	let files: { [key: string]: any } = {};
 	let selectedFile: { uid: string; data: entry_t<object, object> } | undefined = undefined;
-
 	let graph: LGraph = new LGraph();
 
 	onMount(() => {
 		if (browser) {
 			document.addEventListener('keydown', shortcuts);
+		}
+		if ($workflowsState != undefined) {
+			[files, selectedFile, graph] = [
+				$workflowsState.files,
+				$workflowsState.selectedFile,
+				$workflowsState.graph
+			];
 		}
 	});
 
@@ -56,6 +63,7 @@
 		if (browser) {
 			document.removeEventListener('keydown', shortcuts);
 		}
+		$workflowsState = { files, selectedFile, graph };
 	});
 
 	function shortcuts(e: KeyboardEvent) {
@@ -236,7 +244,7 @@
 
 			if (selectedFile == undefined) return;
 			patch(selectedFile.data.history.tmp, selectedFile.data.history.prev.at(-1) ?? {});
-			const p = selectedFile.data.history.prev.pop();
+			const p = selectedFile?.data.history.prev.pop();
 			if (p) selectedFile.data.history.next.push(p);
 			graph.configure(structuredClone(selectedFile.data.history.tmp));
 			selectedFile.data.history.synchronized = false;
