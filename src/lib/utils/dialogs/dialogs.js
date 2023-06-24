@@ -241,6 +241,9 @@ export class Dialog {
 		return this.waitForUser();
 	}
 }
+/**
+ * @type {Dialog|undefined} dialog
+ */
 export let dialog = undefined;
 if (browser) {
 	dialog = new Dialog();

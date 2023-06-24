@@ -36,6 +36,7 @@
 		"isomorphic-git": "^1.23.0",
 		"jsondiffpatch": "^0.4.1",
 		"litegraph.js": "../litegraph.js",
+		"svelte-preprocess": "^5.0.4",
 		"trpc-openapi": "^1.1.2",
 		"trpc-sveltekit": "^3.4.7",
 		"uuid": "^9.0.0",

@@ -19,15 +19,21 @@
 		<slot name="toolbar" />
 		<section style="flex-grow:2" />
 		<section>
-			<AwaitButton tip="Config" icon="mdi:gear" op={async () => goto('/config')} />
-			<AwaitButton tip="Editor" icon="system-uicons:write" op={async () => goto('/editor')} />
-			<AwaitButton tip="Tasks" icon="carbon:task-asset-view" op={async () => goto('/task')} />
+			<AwaitButton
+				tip="Workflows"
+				icon="carbon:ibm-process-mining"
+				op={async () => goto('/workflows')}
+			/>
+			<AwaitButton tip="Canvas" icon="system-uicons:write" op={async () => goto('/canvas')} />
+			<AwaitButton tip="Tasks" icon="carbon:task-asset-view" op={async () => goto('/tasks')} />
+			<AwaitButton tip="Config" icon="mdi:gear" op={async () => goto('/settings')} />
+			<AwaitButton tip="Logs" icon="icon-park-outline:log" op={async () => goto('/docs')} />
+
 			<AwaitButton
 				tip="Help"
 				icon="ic:outline-live-help"
-				op={async () => /*goto('/about')*/ dialog.alert('Temporary help message')}
+				op={async () => /*goto('/about')*/ dialog?.alert('Temporary help message')}
 			/>
-			<AwaitButton tip="Logs" icon="icon-park-outline:log" op={async () => goto('/log')} />
 		</section>
 	</nav>
 	<main><slot /></main>

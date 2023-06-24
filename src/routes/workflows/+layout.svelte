@@ -15,11 +15,12 @@
 	import Dialog from '$lib/components/Dialog.svelte';
 	import MetadataDialog from '$lib/dialogs/MetadataDialog.svelte';
 	import FilesDialog from '$lib/dialogs/FilesDialog.svelte';
+	import { run } from 'svelte/internal';
 
 	export class entry_t<T extends object, dT> {
 		uid: string;
 		name?: string;
-        desc?: string;
+		desc?: string;
 		tags: string[];
 		history: {
 			prev: dT[];
@@ -32,15 +33,15 @@
 			this.history = {
 				prev: [],
 				next: [],
-				tmp: {},
+				tmp: {} as T,
 				synchronized: false
 			};
-			this.history.prev.push({});
+			this.history.prev.push({} as dT);
 			this.tags = [];
 		}
 	}
 
-	let files: object = {};
+	let files: { [key: string]: any } = {};
 	let selectedFile: { uid: string; data: entry_t<object, object> } | undefined = undefined;
 
 	let graph: LGraph = new LGraph();
@@ -82,7 +83,7 @@
 		} else if (e.key == 's' && e.ctrlKey) {
 			Operators.save();
 			e.preventDefault();
-		}  else if (e.key == 'F2') {
+		} else if (e.key == 'F2') {
 			Operators.rename();
 			e.preventDefault();
 		} else {
@@ -108,7 +109,7 @@
 				index = i;
 				return x == selectedFile?.uid;
 			});
-			return Operators.move(keys[index], keys[index - 1]);
+			if (index) return Operators.move(keys[index], keys[index - 1]);
 		},
 		moveNext: () => {
 			if (selectedFile == undefined) return;
@@ -118,11 +119,11 @@
 				index = i;
 				return x == selectedFile?.uid;
 			});
-			return Operators.move(keys[index], keys[index + 1]);
+			if (index) return Operators.move(keys[index], keys[index + 1]);
 		},
 		switch: async (uid?: string) => {
 			if (uid == undefined) return;
-			await goto(`/editor/${uid}`);
+			await goto(`/workflows/${uid}`);
 			selectedFile = { uid, data: files[uid] };
 			graph.configure(files[uid].history?.tmp ?? {});
 		},
@@ -165,7 +166,7 @@
 					graph: selectedFile.data.history.tmp,
 					tags: selectedFile.data.tags,
 					name: selectedFile.data.name,
-                    desc: selectedFile.data.desc
+					desc: selectedFile.data.desc
 				},
 				mode: 'replace'
 			});
@@ -181,7 +182,7 @@
 						graph: file.history.tmp,
 						tags: file.tags,
 						name: file.name,
-                        desc: file.desc
+						desc: file.desc
 					},
 					mode: 'replace'
 				});
@@ -195,7 +196,7 @@
 			if (selectedFile != undefined) {
 				selectedFile.data.name =
 					name ??
-					(await dialog.prompt('Input filename', selectedFile.data.name ?? selectedFile.uid))
+					(await dialog?.prompt('Input filename', selectedFile.data.name ?? selectedFile.uid))
 						.prompt ??
 					selectedFile.data.name ??
 					selectedFile.uid;
@@ -203,15 +204,14 @@
 			files = files;
 		},
 
-        metadata: async (data:any)=>{
-            if(selectedFile==undefined)return
-            selectedFile.data.name = data.name
-            selectedFile.data.tags= data.tags
-            selectedFile.data.desc = data.desc
-            console.log(data)
-            files = files;
-
-        },
+		metadata: async (data: any) => {
+			if (selectedFile == undefined) return;
+			selectedFile.data.name = data.name;
+			selectedFile.data.tags = data.tags;
+			selectedFile.data.desc = data.desc;
+			console.log(data);
+			files = files;
+		},
 		//Todo maybe it should not allow the arg. Either all of them accept an optional target, or none.
 		close: async (uid?: string) => {
 			uid ??= selectedFile?.uid;
@@ -219,7 +219,7 @@
 			if ((await Operators.switchNext()) == false) {
 				if ((await Operators.switchPrev()) == false) {
 					selectedFile = undefined;
-					await goto('/editor');
+					await goto('/workflows');
 				}
 			}
 			delete files[uid];
@@ -235,9 +235,9 @@
 			if (selectedFile == undefined || selectedFile?.data.history.prev.length < 2) return;
 
 			if (selectedFile == undefined) return;
-			patch(selectedFile.data.history.tmp, selectedFile.data.history.prev.at(-1));
-			const p = selectedFile?.data.history.prev.pop();
-			selectedFile.data.history.next.push(p);
+			patch(selectedFile.data.history.tmp, selectedFile.data.history.prev.at(-1) ?? {});
+			const p = selectedFile.data.history.prev.pop();
+			if (p) selectedFile.data.history.next.push(p);
 			graph.configure(structuredClone(selectedFile.data.history.tmp));
 			selectedFile.data.history.synchronized = false;
 			//To make svelte happy
@@ -253,13 +253,19 @@
 			if (selectedFile == undefined) return;
 
 			const p = selectedFile.data.history.next.pop();
-			selectedFile.data.history.prev.push(p);
-			graph.configure(unpatch(selectedFile.data.history.tmp, p));
-			selectedFile.data.history.tmp = structuredClone(graph.serialize());
-			selectedFile.data.history.synchronized = false;
+			if (p) {
+				selectedFile.data.history.prev.push(p);
+				graph.configure(unpatch(selectedFile.data.history.tmp, p));
+				selectedFile.data.history.tmp = structuredClone(graph.serialize());
+				selectedFile.data.history.synchronized = false;
+			}
 			//To make svelte happy
 			selectedFile = selectedFile;
 			files = files;
+		},
+
+		run: async () => {
+			dialog?.alert('No run op supported at this stage');
 		}
 	};
 
@@ -301,7 +307,9 @@
 				icon="material-symbols:save"
 			/>
 			<AwaitButton
-				confirm={selectedFile?.data.history.synchronized == false ? 'Close without saving?' : undefined}
+				confirm={selectedFile?.data.history.synchronized == false
+					? 'Close without saving?'
+					: undefined}
 				disabled={selectedFile == undefined}
 				op={() => Operators.close()}
 				tip="Close"
@@ -328,11 +336,11 @@
 						let reader = new FileReader();
 
 						reader.onload = function () {
-							let data = JSON.parse(reader.result);
+							let data = JSON.parse(reader.result?.toString() ?? '');
 							graph.configure(data);
 							graph.afterChange();
 						};
-						reader.readAsText(loader.files.item(0));
+						reader.readAsText(loader.files?.item(0) ?? new Blob());
 					};
 				}}
 			/>
@@ -371,17 +379,18 @@
 		</section>
 
 		<section>
-			<h1 on:dblclick={async (e) => {
-                    if(selectedFile==undefined)return;
+			<h1
+				on:dblclick={async (e) => {
+					if (selectedFile == undefined) return;
 					if (e.shiftKey == false) {
-						DialogMetadata.name = selectedFile.data.name??selectedFile.data.uid;
-                        DialogMetadata.tags = selectedFile.data.tags;
-						DialogMetadata.desc = selectedFile.data.desc??'';
+						DialogMetadata.name = selectedFile.data.name ?? selectedFile.data.uid;
+						DialogMetadata.tags = selectedFile.data.tags;
+						DialogMetadata.desc = selectedFile.data.desc ?? '';
 						await DialogMetadata.open();
-                        if(DialogMetadata.data()!=null)Operators.metadata(DialogMetadata.data())
-					}
-					else Operators.rename()
-}}>
+						if (DialogMetadata.data() != null) Operators.metadata(DialogMetadata.data());
+					} else Operators.rename();
+				}}
+			>
 				{selectedFile?.data.name ?? selectedFile?.uid ?? 'No file selected'}
 			</h1>
 		</section>
@@ -397,7 +406,7 @@
 			<AwaitButton
 				op={async (e) => {
 					await Operators.create();
-					if (e.shiftKey == false) await Operators.rename();
+					if (e?.shiftKey == false) await Operators.rename();
 				}}
 				tip="Add file"
 				icon="material-symbols:add-box-outline"
@@ -407,27 +416,26 @@
 					const t = (await trpc($page)['programs/ls'].query()).filter((x) => {
 						return !Object.keys(files).includes(x.uid);
 					});
-					if (e.shiftKey == false) {
+					if (e?.shiftKey == false) {
 						DialogFiles.files = t;
 						await DialogFiles.open();
 					}
 					const selection =
-						e.shiftKey == true ? t.map((x) => x.uid) : Object.keys(DialogFiles.data() ?? {});
+						e?.shiftKey == true ? t.map((x) => x.uid) : Object.keys(DialogFiles.data() ?? {});
 					for (const file of selection) {
 						files[file] ??= new entry_t(file);
 						//TODO Load file.
-                        const tmp = await trpc($page)['programs/get'].query({uid:file})
-                        files[file].name = tmp.name
-                        files[file].desc = tmp.desc
-                        files[file].tags = tmp.tags
-                        files[file].history.tmp = tmp.graph
-                        files[file].history.synchronized = true
+						const tmp = await trpc($page)['programs/get'].query({ uid: file });
+						files[file].name = tmp.name;
+						files[file].desc = tmp.desc;
+						files[file].tags = tmp.tags;
+						files[file].history.tmp = tmp.graph;
+						files[file].history.synchronized = true;
 					}
 					if (selection.length > 0) Operators.switch(selection[0]);
 
 					//console.log('Output data', DialogFiles.data());
-                    files = files
-                    
+					files = files;
 				}}
 				tip="Open"
 				icon="material-symbols:file-open-outline-sharp"
@@ -439,10 +447,7 @@
 			<AwaitButton icon="material-symbols:settings-backup-restore" tip="Scrap changes" />
 
 			<AwaitButton icon="material-symbols:download" tip="Pull" />
-			<AwaitButton
-				icon="material-symbols:upload"
-				tip="Push"
-			/>
+			<AwaitButton icon="material-symbols:upload" tip="Push" />
 		</section>
 		<section class="programs">
 			<!--files here-->
