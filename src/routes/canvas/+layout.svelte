@@ -1,9 +1,12 @@
 <script lang="ts">
+	import AwaitButton from '$lib/components/AwaitButton.svelte';
 	import Dialog from '$lib/components/Dialog.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Icon from '@iconify/svelte';
 	import { onMount } from 'svelte';
 	import { Canvas, Layer, t, type Render } from 'svelte-canvas';
+
+	let canvas: HTMLElement;
 
 	let w: number;
 	let h: number;
@@ -68,8 +71,8 @@
 	};
 
 	const updateCursor = (e: MouseEvent) => {
-		brush_x = e.offsetX;
-		brush_y = e.offsetY;
+		brush_x = e.pageX - canvas.getBoundingClientRect().left;
+		brush_y = e.pageY - canvas.getBoundingClientRect().top;
 	};
 
 	const snap = function (value, increment) {
@@ -84,6 +87,10 @@
 
 	let renderWorkspace: Render;
 	let renderBrush: Render;
+	let grouplayers = [
+		{ title: 'Main', items: [{ title: 'A' }, { title: 'B' }] },
+		{ title: 'Masks', items: [{ title: 'B' }, { title: 'B' }, { title: 'd' }] }
+	];
 
 	$: renderWorkspace = ({ context: context, width, height }) => {
 		context.save();
@@ -173,8 +180,13 @@
 	};
 </script>
 
+<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 <Layout>
 	<svelte:fragment slot="toolbar">
+		<section>
+			<AwaitButton disabled={true} tip="New" icon="material-symbols:add-box-outline" />
+			<AwaitButton disabled={true} tip="Load" icon="material-symbols:file-open-outline-sharp" />
+		</section>
 		<section>
 			<h2>Canvas Section</h2>
 		</section>
@@ -183,6 +195,7 @@
 	<svelte:fragment>
 		<div
 			class="canvas"
+			bind:this={canvas}
 			bind:clientWidth={w}
 			bind:clientHeight={h}
 			on:wheel={(e) => applyZoom(e)}
@@ -197,34 +210,136 @@
 		>
 			<Canvas width={w} height={h}>
 				<Layer render={renderWorkspace} />
+
 				<Layer render={renderBrush} />
 			</Canvas>
+
+			<slot />
+			<div class="layers">
+				<section>
+					<header>
+						<h4>Layers</h4>
+					</header>
+					<main>
+						{#each grouplayers as group}
+							<section class="layerGroup">
+								<header>{group.title}</header>
+								{#each group.items as layer}
+									<!--Layer for all visible layers-->
+									<section class="layer">{layer.title}</section>
+								{/each}
+							</section>
+						{/each}
+					</main>
+				</section>
+
+				<footer>
+					<section>
+						<Icon icon="iconoir:position" />{Math.trunc(
+							(brush_x - w / 2 - posx * z) / z
+						)};{Math.trunc((brush_y - h / 2 - posy * z) / z)}
+					</section>
+					<section><Icon icon="fontisto:zoom" />{Math.trunc(z * 100)}%</section>
+					<section><Icon icon="bx:brush" />{brush_width * 64};{brush_height * 64}</section>
+				</footer>
+			</div>
 		</div>
-		<slot />
 	</svelte:fragment>
 
 	<svelte:fragment slot="tabbar">
 		<section>
-			<Icon icon="iconoir:position" />{Math.trunc((brush_x - w / 2 - posx * z) / z)};{Math.trunc(
-				(brush_y - h / 2 - posy * z) / z
-			)}
+			<AwaitButton disabled={true} tip="Save" icon="material-symbols:save" />
+			<AwaitButton disabled={true} tip="Close" icon="mdi:close-box" />
+			<AwaitButton disabled={true} tip="Delete" icon="material-symbols:delete-outline" />
 		</section>
-		<section><Icon icon="fontisto:zoom" />{Math.trunc(z * 100)}%</section>
-		<section><Icon icon="bx:brush" />{brush_width * 64};{brush_height * 64}</section>
+		<section>
+			<AwaitButton disabled={true} tip="Generate" icon="fontisto:export" />
+			<AwaitButton disabled={true} tip="Import reference" icon="fontisto:import" />
+		</section>
+		<section class="genericBrushes">
+			<AwaitButton disabled={true} tip="Cursor" icon="tabler:pointer" />
+			<AwaitButton disabled={true} tip="Text2Image" icon="mdi:text" />
+			<AwaitButton disabled={true} tip="Image2Image" icon="ph:image-duotone" />
+			<AwaitButton disabled={true} tip="Enhance" icon="material-symbols:camera-enhance" />
+		</section>
+		<!--
+		<section class="globalStyles">
+			<select>
+				<option>Sci-fi</option>
+				<option>Streampunk</option>
+			</select>
+			<select>
+				<option>Pastel</option>
+				<option>Streampunk</option>
+			</select>
+		</section>
+        -->
+		<section class="customBrushes">a</section>
 	</svelte:fragment>
 
 	<svelte:fragment slot="dialog-area">
 		<Dialog bind:this={DialogBrush}>
-			<h1>Test dialog general</h1>
-			<input name="hello" />
+			<div class="brushConfig">
+				<h1>Brush settings</h1>
+				<label>Positive: <textarea /></label>
+				<label>Negative: <textarea /></label>
+				<details>
+					<summary>Sampler</summary>
+					<label>Boring config: <input name="hello" /></label>
+				</details>
+
+				<label>Option: <input name="hello" /></label>
+			</div>
 		</Dialog>
 	</svelte:fragment>
 </Layout>
 
 <style lang="scss">
+	.layers:hover {
+		opacity: 1;
+	}
+	.layers {
+		opacity: 0.7;
+		transition: opacity 100ms ease-in-out;
+		left: 0px;
+		width: 200px;
+		top: 10px;
+		bottom: 10px;
+		background-color: darkseagreen;
+		color: darkslategray;
+		left: 10px;
+		display: block;
+		position: absolute;
+		border-radius: 10px;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+
+		padding: 10px;
+		gap: 10px;
+
+		header {
+			h4 {
+				margin: 0px;
+			}
+		}
+		footer {
+			display: flex;
+			flex-direction: column;
+		}
+	}
 	.canvas {
 		background-color: red;
 		width: 100%;
 		height: 100%;
+	}
+
+	.brushConfig {
+		display: flex;
+		flex-direction: column;
+
+		h1 {
+			margin-top: 0px;
+		}
 	}
 </style>

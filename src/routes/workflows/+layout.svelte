@@ -309,6 +309,78 @@
 	<svelte:fragment slot="toolbar">
 		<section>
 			<AwaitButton
+				op={async (e) => {
+					await Operators.create();
+					if (e?.shiftKey == false) await Operators.rename();
+				}}
+				tip="Add file"
+				icon="material-symbols:add-box-outline"
+			/>
+			<AwaitButton
+				op={async (e) => {
+					const t = (await trpc($page)['programs/ls'].query()).filter((x) => {
+						return !Object.keys(files).includes(x.uid);
+					});
+					if (e?.shiftKey == false) {
+						DialogFiles.files = t;
+						await DialogFiles.open();
+					}
+					const selection =
+						e?.shiftKey == true ? t.map((x) => x.uid) : Object.keys(DialogFiles.data() ?? {});
+					for (const file of selection) {
+						files[file] ??= new entry_t(file);
+						//TODO Load file.
+						const tmp = await trpc($page)['programs/get'].query({ uid: file });
+						files[file].name = tmp.name;
+						files[file].desc = tmp.desc;
+						files[file].tags = tmp.tags;
+						files[file].history.tmp = tmp.graph;
+						files[file].history.synchronized = true;
+					}
+					if (selection.length > 0) Operators.switch(selection[0]);
+
+					//console.log('Output data', DialogFiles.data());
+					files = files;
+				}}
+				tip="Open"
+				icon="material-symbols:file-open-outline-sharp"
+			/>
+			<AwaitButton icon="ic:round-save-all" tip="Save all" op={Operators.saveAll} />
+		</section>
+		<section class="git">
+			<AwaitButton icon="material-symbols:commit" tip="Save & Commit" />
+			<AwaitButton icon="material-symbols:settings-backup-restore" tip="Scrap changes" />
+
+			<AwaitButton icon="material-symbols:download" tip="Pull" />
+			<AwaitButton icon="material-symbols:upload" tip="Push" />
+		</section>
+
+		<section>
+			<h1
+				on:dblclick={async (e) => {
+					if (selectedFile == undefined) return;
+					if (e.shiftKey == false) {
+						DialogMetadata.name = selectedFile.data.name ?? selectedFile.data.uid;
+						DialogMetadata.tags = selectedFile.data.tags;
+						DialogMetadata.desc = selectedFile.data.desc ?? '';
+						await DialogMetadata.open();
+						if (DialogMetadata.data() != null) Operators.metadata(DialogMetadata.data());
+					} else Operators.rename();
+				}}
+			>
+				{selectedFile?.data.name ?? selectedFile?.uid ?? 'No file selected'}
+			</h1>
+		</section>
+	</svelte:fragment>
+	<svelte:fragment slot="default">
+		{#if selectedFile != undefined}
+			<GraphEditor {graph} />
+		{:else}<slot />
+		{/if}
+	</svelte:fragment>
+	<svelte:fragment slot="tabbar">
+		<section>
+			<AwaitButton
 				disabled={selectedFile == undefined || selectedFile?.data.history.synchronized == true}
 				op={Operators.save}
 				tip="Save"
@@ -386,77 +458,6 @@
 			/>
 		</section>
 
-		<section>
-			<h1
-				on:dblclick={async (e) => {
-					if (selectedFile == undefined) return;
-					if (e.shiftKey == false) {
-						DialogMetadata.name = selectedFile.data.name ?? selectedFile.data.uid;
-						DialogMetadata.tags = selectedFile.data.tags;
-						DialogMetadata.desc = selectedFile.data.desc ?? '';
-						await DialogMetadata.open();
-						if (DialogMetadata.data() != null) Operators.metadata(DialogMetadata.data());
-					} else Operators.rename();
-				}}
-			>
-				{selectedFile?.data.name ?? selectedFile?.uid ?? 'No file selected'}
-			</h1>
-		</section>
-	</svelte:fragment>
-	<svelte:fragment slot="default">
-		{#if selectedFile != undefined}
-			<GraphEditor {graph} />
-		{:else}<slot />
-		{/if}
-	</svelte:fragment>
-	<svelte:fragment slot="tabbar">
-		<section>
-			<AwaitButton
-				op={async (e) => {
-					await Operators.create();
-					if (e?.shiftKey == false) await Operators.rename();
-				}}
-				tip="Add file"
-				icon="material-symbols:add-box-outline"
-			/>
-			<AwaitButton
-				op={async (e) => {
-					const t = (await trpc($page)['programs/ls'].query()).filter((x) => {
-						return !Object.keys(files).includes(x.uid);
-					});
-					if (e?.shiftKey == false) {
-						DialogFiles.files = t;
-						await DialogFiles.open();
-					}
-					const selection =
-						e?.shiftKey == true ? t.map((x) => x.uid) : Object.keys(DialogFiles.data() ?? {});
-					for (const file of selection) {
-						files[file] ??= new entry_t(file);
-						//TODO Load file.
-						const tmp = await trpc($page)['programs/get'].query({ uid: file });
-						files[file].name = tmp.name;
-						files[file].desc = tmp.desc;
-						files[file].tags = tmp.tags;
-						files[file].history.tmp = tmp.graph;
-						files[file].history.synchronized = true;
-					}
-					if (selection.length > 0) Operators.switch(selection[0]);
-
-					//console.log('Output data', DialogFiles.data());
-					files = files;
-				}}
-				tip="Open"
-				icon="material-symbols:file-open-outline-sharp"
-			/>
-			<AwaitButton icon="ic:round-save-all" tip="Save all" op={Operators.saveAll} />
-		</section>
-		<section class="git">
-			<AwaitButton icon="material-symbols:commit" tip="Save & Commit" />
-			<AwaitButton icon="material-symbols:settings-backup-restore" tip="Scrap changes" />
-
-			<AwaitButton icon="material-symbols:download" tip="Pull" />
-			<AwaitButton icon="material-symbols:upload" tip="Push" />
-		</section>
 		<section class="programs">
 			<!--files here-->
 

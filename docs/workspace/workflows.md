@@ -46,3 +46,7 @@ Planned:
 - [ ] Review tRPC functions and provide fs support.
 - [ ] Isomorphic GIT to allow repositories.
 - [ ] Include the final comfyui nodes, and not the placeholder ones
+
+## BUGS
+
+- [ ] Moving program to the left get it stuck.

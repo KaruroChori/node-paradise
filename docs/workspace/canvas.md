@@ -24,4 +24,3 @@ For each channel the sampling method can be either floating or fixed depending i
 * RIGHT CLICK: configuration panel for brush
 * SHIFT + RIGHT CLICK: restore brush to default
 * LEFT CLICK: apply brush
-*
