@@ -86,7 +86,7 @@
 			focusable[0].focus();
 			focusable[0].select();
 		} else {
-            yes?.focus();
+			yes?.focus();
 			accept?.focus();
 		}
 		const sound = soundAccept.getAttribute('src');
@@ -129,7 +129,7 @@
 	});
 
 	export let config = { yes: false, no: false, accept: true };
-    export let memory: boolean =  false
+	export let memory: boolean = false;
 </script>
 
 <dialog
@@ -139,7 +139,7 @@
 	on:keydown={(e) => {
 		if (e.key === 'Enter') {
 			e.preventDefault();
-            yes?.dispatchEvent(new Event('click'));
+			yes?.dispatchEvent(new Event('click'));
 			accept?.dispatchEvent(new Event('click'));
 		}
 		if (e.key === 'Escape') dialog.dispatchEvent(new Event('cancel'));
