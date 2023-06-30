@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AwaitButton from '$lib/components/AwaitButton.svelte';
+	import BrushDetails from '$lib/components/BrushDetails.svelte';
 	import Dialog from '$lib/components/Dialog.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Icon from '@iconify/svelte';
@@ -22,8 +23,25 @@
 
 	let DialogBrush: Dialog;
 
+	let selectedGroup;
+	let selectedLayer;
+
+	const basicBrushes = [
+		{ tip: 'Cursor', icon: 'tabler:pointer', data: { info: 'Hello' } },
+		{ tip: 'Text2Image', icon: 'mdi:text', data: { info: 'Hell2o' } },
+		{ tip: 'Image2Image', icon: 'ph:image-duotone', data: { info: 'Hello' } },
+		{ tip: 'Enhance', icon: 'material-symbols:camera-enhance', data: { info: 'Hello' } },
+		{ tip: 'Inpaint', icon: 'radix-icons:mask-on', data: { info: 'Hello' } }
+	];
+
+	let presetBrushes = [];
+
+	let customBrushes = [];
+	let activeBrush = basicBrushes[0];
+
 	const applyZoom = (e: WheelEvent) => {
-		if (e.shiftKey == true) {
+		e.preventDefault();
+		if (e.ctrlKey == false && e.shiftKey == true) {
 			if (e.deltaY > 0) {
 				brush_width++;
 				brush_height++;
@@ -32,6 +50,25 @@
 				brush_height--;
 			}
 			if (brush_width < 4) brush_width = 4;
+			if (brush_height < 4) brush_height = 4;
+
+			return;
+		}
+		if (e.shiftKey == true && e.ctrlKey == true) {
+			if (e.deltaY > 0) {
+				brush_width++;
+			} else {
+				brush_width--;
+			}
+			if (brush_width < 4) brush_width = 4;
+
+			return;
+		} else if (e.ctrlKey == true) {
+			if (e.deltaY > 0) {
+				brush_height++;
+			} else {
+				brush_height--;
+			}
 			if (brush_height < 4) brush_height = 4;
 
 			return;
@@ -66,13 +103,27 @@
 			z = 1;
 			return;
 		}
-		posx = posx + (e.key == '4' ? motion : 0) - (e.key == '6' ? motion : 0);
-		posy = posy + (e.key == '2' ? motion : 0) - (e.key == '8' ? motion : 0);
+		/*posx = posx + (e.key == '4' ? motion : 0) - (e.key == '6' ? motion : 0);
+		posy = posy + (e.key == '2' ? motion : 0) - (e.key == '8' ? motion : 0);*/
+	};
+
+	let dragXstart = 0;
+	let dragYstart = 0;
+	const saveDragOrigin = (e: MouseEvent) => {
+		dragXstart = (e.pageX - canvas.getBoundingClientRect().left - w / 2) / z - posx;
+		dragYstart = (e.pageY - canvas.getBoundingClientRect().top - h / 2) / z - posy;
 	};
 
 	const updateCursor = (e: MouseEvent) => {
-		brush_x = e.pageX - canvas.getBoundingClientRect().left;
-		brush_y = e.pageY - canvas.getBoundingClientRect().top;
+		if (e.buttons == 4) {
+			brush_x = e.pageX - canvas.getBoundingClientRect().left;
+			brush_y = e.pageY - canvas.getBoundingClientRect().top;
+			posx = (brush_x - w / 2) / z - dragXstart;
+			posy = (brush_y - h / 2) / z - dragYstart;
+		} else {
+			brush_x = e.pageX - canvas.getBoundingClientRect().left;
+			brush_y = e.pageY - canvas.getBoundingClientRect().top;
+		}
 	};
 
 	const snap = function (value, increment) {
@@ -156,7 +207,7 @@
 		context.stroke();
 
 		//Cursor fixed frame. Used to have data shown without scale
-
+		/*
 		context.fillStyle = `hsla(${$t / 40}, 100%, 0%,0.66)`;
 		context.beginPath();
 		context.rect(
@@ -175,12 +226,13 @@
 			(-(brush_width * 64) / 2 + 5) / z,
 			((brush_height * 64) / 2 - 10) / z
 		);
-
+        */
 		context.restore();
 	};
 </script>
 
 <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+<!-- svelte-ignore a11y-click-events-have-key-events -->
 <Layout>
 	<svelte:fragment slot="toolbar">
 		<section>
@@ -198,15 +250,18 @@
 			bind:this={canvas}
 			bind:clientWidth={w}
 			bind:clientHeight={h}
+			tabindex="0"
 			on:wheel={(e) => applyZoom(e)}
+			on:keydown={(e) => console.log(e)}
 			on:keypress={(e) => applyTranslation(e)}
+			on:mousedown={(e) => saveDragOrigin(e)}
 			on:mousemove={(e) => updateCursor(e)}
+			on:mouseup={(e) => updateCursor(e)}
 			on:contextmenu={async (e) => {
 				e.preventDefault();
 
 				await DialogBrush.open();
 			}}
-			tabindex="0"
 		>
 			<Canvas width={w} height={h}>
 				<Layer render={renderWorkspace} />
@@ -215,33 +270,99 @@
 			</Canvas>
 
 			<slot />
-			<div class="layers">
-				<section>
-					<header>
-						<h4>Layers</h4>
-					</header>
+			<div class="widgets widgets-left">
+				<details class="widget widget-channels">
+					<summary>
+						<h4>Channels</h4>
+					</summary>
 					<main>
 						{#each grouplayers as group}
 							<section class="layerGroup">
-								<header>{group.title}</header>
+								<header>
+									<span>{group.title}</span><span>
+										{#if !group.visible}
+											<AwaitButton disabled={true} tip="Show" icon="mdi:show" />
+										{:else}
+											<AwaitButton disabled={true} tip="Hide" icon="mdi:hide" />
+										{/if}
+										<AwaitButton disabled={true} tip="Add" icon="material-symbols:add" />
+										<AwaitButton disabled={true} tip="Add" icon="material-symbols:delete" />
+									</span>
+								</header>
 								{#each group.items as layer}
 									<!--Layer for all visible layers-->
-									<section class="layer">{layer.title}</section>
+									<section class="layer">
+										<span>{layer.title}</span>
+										<span>
+											{#if !layer.visible}
+												<AwaitButton disabled={true} tip="Show" icon="mdi:show" />
+											{:else}
+												<AwaitButton disabled={true} tip="Hide" icon="mdi:hide" />
+											{/if}
+											<AwaitButton disabled={true} tip="Move Up" icon="raphael:arrowup" />
+											<AwaitButton disabled={true} tip="Move Down" icon="raphael:arrowdown" />
+											<AwaitButton disabled={true} tip="Add" icon="material-symbols:delete" />
+										</span>
+									</section>
 								{/each}
 							</section>
 						{/each}
 					</main>
+				</details>
+
+				<section class="widget widget-stats">
+					<div>
+						<section>
+							<Icon icon="iconoir:position" />{Math.round(
+								(brush_x - w / 2 - posx * z) / z
+							)};{Math.trunc((brush_y - h / 2 - posy * z) / z)}
+						</section>
+						<section><Icon icon="fontisto:zoom" />{Math.round(z * 100)}%</section>
+						<section><Icon icon="bx:brush" />{brush_width * 64};{brush_height * 64}</section>
+					</div>
+				</section>
+			</div>
+
+			<div class="widgets widgets-right">
+				<section class="widget widget-brushes widget-basic-brushes">
+					{#each basicBrushes as brush, i}
+						<div
+							title={brush.tip}
+							class:selected={activeBrush === brush}
+							on:click={(e) => (activeBrush = brush)}
+						>
+							<Icon icon={brush.icon} />
+						</div>
+					{/each}
 				</section>
 
-				<footer>
-					<section>
-						<Icon icon="iconoir:position" />{Math.trunc(
-							(brush_x - w / 2 - posx * z) / z
-						)};{Math.trunc((brush_y - h / 2 - posy * z) / z)}
-					</section>
-					<section><Icon icon="fontisto:zoom" />{Math.trunc(z * 100)}%</section>
-					<section><Icon icon="bx:brush" />{brush_width * 64};{brush_height * 64}</section>
-				</footer>
+				<section class="widget widget-brushes widget-custom-brushes">
+					{#each customBrushes as brush, i}
+						<div
+							title={brush.tip}
+							class:selected={activeBrush === brush}
+							on:click={(e) => (activeBrush = brush)}
+						>
+							<Icon icon={brush.icon} />
+						</div>
+					{/each}
+				</section>
+
+				<section class="widget widget-brushes widget-preset-brushes">
+					{#each presetBrushes as brush, i}
+						<div
+							title={brush.tip}
+							class:selected={activeBrush === brush}
+							on:click={(e) => (activeBrush = brush)}
+						>
+							<Icon icon={brush.icon} />
+						</div>
+					{/each}
+				</section>
+
+				<section class="widget widget-brush-details">
+					<BrushDetails data={activeBrush?.data} />
+				</section>
 			</div>
 		</div>
 	</svelte:fragment>
@@ -253,14 +374,9 @@
 			<AwaitButton disabled={true} tip="Delete" icon="material-symbols:delete-outline" />
 		</section>
 		<section>
+			<AwaitButton disabled={true} tip="Upscale" icon="mdi:arrow-up-bold" />
 			<AwaitButton disabled={true} tip="Generate" icon="fontisto:export" />
 			<AwaitButton disabled={true} tip="Import reference" icon="fontisto:import" />
-		</section>
-		<section class="genericBrushes">
-			<AwaitButton disabled={true} tip="Cursor" icon="tabler:pointer" />
-			<AwaitButton disabled={true} tip="Text2Image" icon="mdi:text" />
-			<AwaitButton disabled={true} tip="Image2Image" icon="ph:image-duotone" />
-			<AwaitButton disabled={true} tip="Enhance" icon="material-symbols:camera-enhance" />
 		</section>
 		<!--
 		<section class="globalStyles">
@@ -295,39 +411,76 @@
 </Layout>
 
 <style lang="scss">
-	.layers:hover {
-		opacity: 1;
-	}
-	.layers {
-		opacity: 0.7;
-		transition: opacity 100ms ease-in-out;
-		left: 0px;
-		width: 200px;
+	.widgets {
 		top: 10px;
 		bottom: 10px;
+		position: absolute;
+		display: flex;
+		flex-direction: column;
+		flex-wrap: wrap;
+		gap: 10px;
+	}
+
+	.widgets-left {
+		left: 10px;
+		justify-content: space-between;
+
+		.widget {
+			margin-right: 10px;
+		}
+	}
+
+	.widgets-right {
+		right: 10px;
+
+		.widget {
+			margin-left: 10px;
+		}
+	}
+
+	.widget:hover {
+		opacity: 1;
+	}
+	.widget {
+		min-width: 200px;
+
+		opacity: 0.7;
+
+		transition: opacity 100ms ease-in-out;
+
 		background-color: darkseagreen;
 		color: darkslategray;
-		left: 10px;
 		display: block;
-		position: absolute;
 		border-radius: 10px;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
 
-		padding: 10px;
 		gap: 10px;
 
-		header {
-			h4 {
-				margin: 0px;
-			}
+		max-height: 100%;
+		overflow: auto;
+
+		& > * {
+			padding: 10px;
 		}
-		footer {
-			display: flex;
-			flex-direction: column;
+
+		h4 {
+			margin: 0px;
+		}
+
+		summary {
+			position: sticky;
+			top: 0px;
+			background-color: darkseagreen;
+		}
+
+		::marker {
+			color: red;
+			marker: none;
+			content: '';
 		}
 	}
+
 	.canvas {
 		background-color: red;
 		width: 100%;
@@ -340,6 +493,41 @@
 
 		h1 {
 			margin-top: 0px;
+		}
+	}
+
+	.layerGroup header,
+	.layerGroup section.layer {
+		display: flex;
+		justify-content: space-between;
+
+		span {
+			display: flex;
+			gap: 5px;
+		}
+	}
+
+	.layerGroup section.layer {
+		padding-left: 10px;
+	}
+
+	.widget-brushes {
+		flex-direction: row;
+		display: flex;
+		padding: 5px;
+		gap: 5px;
+
+		div {
+			background-color: white;
+			border-radius: 100px;
+			width: 15px;
+			height: 15px;
+			line-height: 100%;
+		}
+
+		div.selected {
+			background-color: black;
+			color: white;
 		}
 	}
 </style>
