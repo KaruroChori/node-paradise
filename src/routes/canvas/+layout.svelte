@@ -439,7 +439,7 @@
 			on:mousemove={(e) => updateCursor(e)}
 			on:mouseup={(e) => updateCursor(e)}
 			on:contextmenu={async (e) => {
-				e.preventDefault();
+				//e.preventDefault();
 				execute(e);
 				/*e.preventDefault();
 
@@ -454,7 +454,7 @@
 
 			<slot />
 			<div class="widgets widgets-left">
-				<details class="widget widget-channels">
+				<details class="widget widget-channels" open>
 					<summary>
 						<h4>Channels</h4>
 					</summary>
@@ -525,107 +525,130 @@
 								{/each}
 							</section>
 						{/each}
-						<section class="layerGroup">
-							<header>
-								<span>Buffers</span><span
-									>{#if !bufferLayersVisible}
+					</main>
+				</details>
+				<details class="widget widget-buffers" open>
+					<summary>
+						<h4>Buffers</h4>
+						<span>
+							<AwaitButton
+								tip="Merge"
+								op={() => {
+									notifications.warning('Not implemented yet', 1500);
+								}}
+								icon="ic:round-merge"
+							/>
+							{#if !bufferLayersVisible}
+								<AwaitButton
+									tip="Show all"
+									op={() => {
+										bufferLayersVisible = true;
+									}}
+									icon="mdi:show"
+								/>
+							{:else}
+								<AwaitButton
+									tip="Hide all"
+									op={() => {
+										bufferLayersVisible = false;
+									}}
+									icon="mdi:hide"
+								/>
+							{/if}
+						</span>
+					</summary>
+					<main>
+						{#each bufferLayers as bufferLayer, i}
+							<section
+								class="layer"
+								on:click={() => {
+									currentBufferLayer = bufferLayer;
+								}}
+							>
+								<span class="title"
+									><a>{currentBufferLayer == bufferLayer ? '*' : ''}{bufferLayer.title}</a></span
+								>
+								<span>
+									{#if !bufferLayer.visible}
 										<AwaitButton
-											tip="Show all"
-											op={() => (bufferLayersVisible = true)}
+											tip="Show"
+											op={() => (bufferLayer.visible = true)}
 											icon="mdi:show"
 										/>
 									{:else}
 										<AwaitButton
-											tip="Hide all"
+											tip="Hide"
 											op={() => {
-												bufferLayersVisible = false;
+												bufferLayer.visible = false;
+												currentBufferLayer = undefined;
 											}}
 											icon="mdi:hide"
 										/>
-									{/if}</span
-								>
-							</header>
-							{#each bufferLayers as bufferLayer, i}
-								<section
-									class="layer"
-									on:click={() => {
-										currentBufferLayer = bufferLayer;
-									}}
-								>
-									<span class="title"
-										><a>{currentBufferLayer == bufferLayer ? '*' : ''}{bufferLayer.title}</a></span
-									>
-									<span>
-										{#if !bufferLayer.visible}
-											<AwaitButton
-												tip="Show"
-												op={() => (bufferLayer.visible = true)}
-												icon="mdi:show"
-											/>
-										{:else}
-											<AwaitButton
-												tip="Hide"
-												op={() => {
-													bufferLayer.visible = false;
-													currentBufferLayer = undefined;
-												}}
-												icon="mdi:hide"
-											/>
-										{/if}
-										<AwaitButton
-											disabled={i == 0}
-											op={() => {
-												const tmp = bufferLayers[i - 1];
-												bufferLayers[i - 1] = bufferLayers[i];
-												bufferLayers[i] = tmp;
-											}}
-											tip="Move Up"
-											icon="raphael:arrowup"
-										/>
-										<AwaitButton
-											disabled={i + 1 == bufferLayers.length}
-											op={() => {
-												const tmp = bufferLayers[i];
-												bufferLayers[i] = bufferLayers[i + 1];
-												bufferLayers[i + 1] = tmp;
-											}}
-											tip="Move Down"
-											icon="raphael:arrowdown"
-										/>
-										<AwaitButton
-											op={async () => {
-												bufferLayer.title =
-													(await dialog?.prompt('Input filename', bufferLayer.title)).prompt ??
-													bufferLayer.title;
-												bufferLayers = bufferLayers;
-											}}
-											tip="Rename"
-											icon="mdi:rename-box"
-										/>
-										<AwaitButton
-											op={() => {
-												if (currentBufferLayer == bufferLayer) currentBufferLayer = undefined;
+									{/if}
+									<AwaitButton
+										disabled={i == 0}
+										op={() => {
+											const tmp = bufferLayers[i - 1];
+											bufferLayers[i - 1] = bufferLayers[i];
+											bufferLayers[i] = tmp;
+										}}
+										tip="Move Up"
+										icon="raphael:arrowup"
+									/>
+									<AwaitButton
+										disabled={i + 1 == bufferLayers.length}
+										op={() => {
+											const tmp = bufferLayers[i];
+											bufferLayers[i] = bufferLayers[i + 1];
+											bufferLayers[i + 1] = tmp;
+										}}
+										tip="Move Down"
+										icon="raphael:arrowdown"
+									/>
+									<AwaitButton
+										op={async () => {
+											bufferLayer.title =
+												(await dialog?.prompt('Input filename', bufferLayer.title)).prompt ??
+												bufferLayer.title;
+											bufferLayers = bufferLayers;
+										}}
+										tip="Rename"
+										icon="mdi:rename-box"
+									/>
+									<AwaitButton
+										op={() => {
+											if (currentBufferLayer == bufferLayer) currentBufferLayer = undefined;
 
-												bufferLayers.splice(i, 1);
-												bufferLayers = bufferLayers;
-											}}
-											tip="Delete"
-											icon="material-symbols:delete"
-										/>
-									</span>
-								</section>
-							{/each}
-						</section>
+											bufferLayers.splice(i, 1);
+											bufferLayers = bufferLayers;
+										}}
+										tip="Delete"
+										icon="material-symbols:delete"
+									/>
+								</span>
+							</section>
+						{/each}
 					</main>
 				</details>
-
+				<section style="flex-grow:1;">s</section>
+				{#if currentBufferLayer != undefined}
+					<section class="widget widget-stats">
+						<div>
+							<section>
+								<Icon icon="iconoir:position" />{Math.round(
+									currentBufferLayer?.x ?? 0
+								)};{Math.round(currentBufferLayer?.y ?? 0)}
+							</section>
+							<section>
+								<Icon icon="bx:brush" />{Math.round(currentBufferLayer.w)};{Math.round(
+									currentBufferLayer.h
+								)}
+							</section>
+						</div>
+					</section>
+				{/if}
 				<section class="widget widget-stats">
 					<div>
-						<section>
-							<Icon icon="iconoir:position" />{Math.round(currentBufferLayer?.x ?? 0)};{Math.round(
-								currentBufferLayer?.y ?? 0
-							)}
-						</section>
 						<section>
 							<Icon icon="iconoir:position" />{Math.round(
 								(brush_x - w / 2 - posx * z) / z
@@ -639,15 +662,18 @@
 
 			<div class="widgets widgets-right">
 				<section class="widget widget-brushes widget-basic-brushes">
-					{#each basicBrushes as brush, i}
-						<div
-							title={brush.tip}
-							class:selected={activeBrush === brush}
-							on:click={(e) => (activeBrush = brush)}
-						>
-							<Icon icon={brush.icon} />
-						</div>
-					{/each}
+					<div>
+						{#each basicBrushes as brush, i}
+							<div
+								title={brush.tip}
+								class:selected={activeBrush === brush}
+								class="brush"
+								on:click={(e) => (activeBrush = brush)}
+							>
+								<Icon icon={brush.icon} />
+							</div>
+						{/each}
+					</div>
 				</section>
 				{#if customBrushes.length != 0}
 					<section class="widget widget-brushes widget-custom-brushes">
@@ -836,20 +862,24 @@
 	}
 
 	.widget-brushes {
-		flex-direction: row;
-		display: flex;
-		padding: 5px;
-		gap: 5px;
-
-		div {
-			background-color: white;
-			border-radius: 100px;
-			width: 15px;
-			height: 15px;
-			line-height: 100%;
+		align-items: center;
+		& > div {
+			padding: 5px;
+			flex-direction: row;
+			display: flex;
+			gap: 5px;
 		}
 
-		div.selected {
+		& > div > div {
+			background-color: white;
+			border-radius: 100px;
+			width: 35px;
+			height: 35px;
+			line-height: 40px;
+			text-align: center;
+		}
+
+		& > div > div.selected {
 			background-color: black;
 			color: white;
 		}
@@ -890,5 +920,31 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
+	}
+
+	details.widget {
+		& > summary {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+		}
+		& > main > .layer {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			gap: 5px;
+
+			& > span {
+				display: flex;
+				justify-content: space-between;
+				align-items: baseline;
+				gap: 5px;
+			}
+		}
+	}
+
+	.widget-stats > div > section {
+		display: flex;
+		gap: 10px;
 	}
 </style>
