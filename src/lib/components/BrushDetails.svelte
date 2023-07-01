@@ -11,17 +11,32 @@
 	export let data: { info: string; widgets: Widget[] };
 </script>
 
-{#if data?.info != undefined}
-	<h4>Info</h4>
-	<p>{data.info}</p>
-{/if}
-{#each data?.widgets ?? [] as widget}
-	{#if widget.type == 'text'}
-		<textarea />
-	{:else if widget.type == 'image'}
-		<div>Image placeholder</div>
+<main>
+	{#if data?.info != undefined}
+		<h4>Info</h4>
+		<p>{@html data.info}</p>
+		<hr />
 	{/if}
-{/each}
+	{#each data?.widgets ?? [] as widget}
+		{#if widget.type == 'text'}
+			<textarea />
+		{:else if widget.type == 'image'}
+			<div>Image placeholder</div>
+		{/if}
+	{/each}
+</main>
 
 <style lang="scss">
+	main {
+		padding: 10px;
+	}
+	h4 {
+		margin: 0px;
+	}
+	hr {
+		margin: 0px;
+		color: white;
+		border: none;
+		border-bottom: 2px solid white;
+	}
 </style>

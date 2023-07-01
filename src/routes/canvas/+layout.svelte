@@ -3,6 +3,8 @@
 	import BrushDetails from '$lib/components/BrushDetails.svelte';
 	import Dialog from '$lib/components/Dialog.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import { dialog } from '$lib/utils/dialogs/dialogs';
+	import { notifications } from '$lib/utils/notify';
 	import Icon from '@iconify/svelte';
 	import { onMount } from 'svelte';
 	import { Canvas, Layer, t, type Render } from 'svelte-canvas';
@@ -26,12 +28,60 @@
 	let selectedGroup;
 	let selectedLayer;
 
+	type BufferLayer = {
+		imgs: HTMLImageElement[];
+		current: HTMLImageElement;
+		x: number;
+		y: number;
+		w: number;
+		h: number;
+	};
+
+	let bufferLayers: BufferLayer[] = [];
+	let currentBufferLayer: BufferLayer | undefined = undefined;
+	let bufferLayersVisible: boolean = true;
+
 	const basicBrushes = [
-		{ tip: 'Cursor', icon: 'tabler:pointer', data: { info: 'Hello' } },
-		{ tip: 'Text2Image', icon: 'mdi:text', data: { info: 'Hell2o' } },
-		{ tip: 'Image2Image', icon: 'ph:image-duotone', data: { info: 'Hello' } },
-		{ tip: 'Enhance', icon: 'material-symbols:camera-enhance', data: { info: 'Hello' } },
-		{ tip: 'Inpaint', icon: 'radix-icons:mask-on', data: { info: 'Hello' } }
+		{
+			tip: 'Cursor',
+			icon: 'tabler:pointer',
+			data: { info: 'Basic cursor.<br/>Use it to select layer.' }
+		},
+		{
+			tip: 'Text2Image',
+			icon: 'mdi:text',
+			data: {
+				info: 'Use the description in the positive and negative prompts to generate a batch of images.'
+			}
+		},
+		{
+			tip: 'Image2Image',
+			icon: 'ph:image-duotone',
+			data: {
+				info: 'Use the description of the positive and negative prompts to generate a batch of images.<br/>However the current image will be partially reused to bias the generation.'
+			}
+		},
+		{
+			tip: 'Enhance details',
+			icon: 'material-symbols:camera-enhance',
+			data: { info: 'Utility brush to enhance (or reduce) the detail for the selected region.' }
+		},
+		{
+			tip: 'Add lights',
+			icon: 'iconoir:sun-light',
+			data: { info: 'Introduce lights and shadows in the selected region.' }
+		},
+		{
+			tip: 'Restyle',
+			icon: 'ic:twotone-style',
+			data: { info: 'Restyle the region base on the prompt or use an image as reference.' }
+		},
+
+		{
+			tip: 'Inpaint',
+			icon: 'radix-icons:mask-on',
+			data: { info: 'Add new content keeping into account the context around.' }
+		}
 	];
 
 	let presetBrushes = [];
@@ -42,35 +92,58 @@
 	const applyZoom = (e: WheelEvent) => {
 		e.preventDefault();
 		if (e.ctrlKey == false && e.shiftKey == true) {
-			if (e.deltaY > 0) {
-				brush_width++;
-				brush_height++;
+			if (currentBufferLayer != undefined && bufferLayersVisible == true) {
+				if (e.deltaY > 0) {
+					currentBufferLayer.w *= 1.1;
+					currentBufferLayer.h *= 1.1;
+				} else {
+					currentBufferLayer.w /= 1.1;
+					currentBufferLayer.h /= 1.1;
+				}
 			} else {
-				brush_width--;
-				brush_height--;
+				if (e.deltaY > 0) {
+					brush_width++;
+					brush_height++;
+				} else {
+					brush_width--;
+					brush_height--;
+				}
+				if (brush_width < 4) brush_width = 4;
+				if (brush_height < 4) brush_height = 4;
 			}
-			if (brush_width < 4) brush_width = 4;
-			if (brush_height < 4) brush_height = 4;
-
 			return;
 		}
 		if (e.shiftKey == true && e.ctrlKey == true) {
-			if (e.deltaY > 0) {
-				brush_width++;
+			if (currentBufferLayer != undefined && bufferLayersVisible == true) {
+				if (e.deltaY > 0) {
+					currentBufferLayer.w *= 1.1;
+				} else {
+					currentBufferLayer.w /= 1.1;
+				}
 			} else {
-				brush_width--;
+				if (e.deltaY > 0) {
+					brush_width++;
+				} else {
+					brush_width--;
+				}
+				if (brush_width < 4) brush_width = 4;
 			}
-			if (brush_width < 4) brush_width = 4;
-
 			return;
 		} else if (e.ctrlKey == true) {
-			if (e.deltaY > 0) {
-				brush_height++;
+			if (currentBufferLayer != undefined && bufferLayersVisible == true) {
+				if (e.deltaY > 0) {
+					currentBufferLayer.h *= 1.1;
+				} else {
+					currentBufferLayer.h /= 1.1;
+				}
 			} else {
-				brush_height--;
+				if (e.deltaY > 0) {
+					brush_height++;
+				} else {
+					brush_height--;
+				}
+				if (brush_height < 4) brush_height = 4;
 			}
-			if (brush_height < 4) brush_height = 4;
-
 			return;
 		}
 
@@ -93,7 +166,7 @@
 		}
 	};
 
-	const applyTranslation = (e: KeyboardEvent) => {
+	const keyBindings = (e: KeyboardEvent) => {
 		console.log(posx, posy);
 
 		const motion = 10 / z;
@@ -101,7 +174,18 @@
 			posx = 0;
 			posy = 0;
 			z = 1;
-			return;
+		} else if (e.key === 'Escape') {
+			currentBufferLayer = undefined;
+		} else if (
+			e.key === 'Delete' &&
+			currentBufferLayer != undefined &&
+			bufferLayersVisible == true
+		) {
+			bufferLayers.splice(bufferLayers.indexOf(currentBufferLayer), 1);
+			currentBufferLayer = undefined;
+			bufferLayers = bufferLayers;
+		} else if (e.key === 'l') {
+			//TODO: open close layer widget
 		}
 		/*posx = posx + (e.key == '4' ? motion : 0) - (e.key == '6' ? motion : 0);
 		posy = posy + (e.key == '2' ? motion : 0) - (e.key == '8' ? motion : 0);*/
@@ -110,12 +194,24 @@
 	let dragXstart = 0;
 	let dragYstart = 0;
 	const saveDragOrigin = (e: MouseEvent) => {
-		dragXstart = (e.pageX - canvas.getBoundingClientRect().left - w / 2) / z - posx;
-		dragYstart = (e.pageY - canvas.getBoundingClientRect().top - h / 2) / z - posy;
+		if (currentBufferLayer != undefined && bufferLayersVisible == true) {
+			dragXstart =
+				-currentBufferLayer.x + (e.pageX - canvas.getBoundingClientRect().left - w / 2) / z;
+			dragYstart =
+				-currentBufferLayer.y + (e.pageY - canvas.getBoundingClientRect().top - h / 2) / z;
+		} else {
+			dragXstart = (e.pageX - canvas.getBoundingClientRect().left - w / 2) / z - posx;
+			dragYstart = (e.pageY - canvas.getBoundingClientRect().top - h / 2) / z - posy;
+		}
 	};
 
 	const updateCursor = (e: MouseEvent) => {
-		if (e.buttons == 4) {
+		if (e.buttons == 4 && currentBufferLayer != undefined && bufferLayersVisible == true) {
+			brush_x = e.pageX - canvas.getBoundingClientRect().left;
+			brush_y = e.pageY - canvas.getBoundingClientRect().top;
+			currentBufferLayer.x = -(dragXstart - (brush_x - w / 2) / z);
+			currentBufferLayer.y = -(dragYstart - (brush_y - h / 2) / z);
+		} else if (e.buttons == 4) {
 			brush_x = e.pageX - canvas.getBoundingClientRect().left;
 			brush_y = e.pageY - canvas.getBoundingClientRect().top;
 			posx = (brush_x - w / 2) / z - dragXstart;
@@ -123,6 +219,42 @@
 		} else {
 			brush_x = e.pageX - canvas.getBoundingClientRect().left;
 			brush_y = e.pageY - canvas.getBoundingClientRect().top;
+		}
+	};
+
+	const execute = (e: MouseEvent) => {
+		notifications.danger('Rendering action not yet implemented.', 1500);
+	};
+
+	const addBufferLayer = (image: HTMLImageElement) => {
+		const t = {
+			title: image.title,
+			imgs: [image],
+			current: image,
+			x: -posx,
+			y: -posy,
+			w: image.width,
+			h: image.height,
+			visible: true
+		};
+		bufferLayers.push(t);
+		currentBufferLayer = t;
+		bufferLayers = bufferLayers;
+	};
+
+	const addImage = (e) => {
+		let reader = new FileReader();
+		let image = new Image();
+		reader.onload = function (event) {
+			image.onload = function () {
+				addBufferLayer(image);
+				notifications.success('Image loaded', 1500);
+			};
+			image.src = event?.target?.result?.toString() ?? '';
+			image.title = e?.target?.files[0].name;
+		};
+		for (const i of e.target.files) {
+			reader.readAsDataURL(i);
 		}
 	};
 
@@ -138,7 +270,7 @@
 
 	let renderWorkspace: Render;
 	let renderBrush: Render;
-	let grouplayers = [
+	let groupLayers = [
 		{ title: 'Main', items: [{ title: 'A' }, { title: 'B' }] },
 		{ title: 'Masks', items: [{ title: 'B' }, { title: 'B' }, { title: 'd' }] }
 	];
@@ -175,6 +307,55 @@
 		context.beginPath();
 		context.arc(($t / 4) % width, ($t / 4) % height, 100, 0, Math.PI * 2);
 		context.fill();
+		context.restore();
+	};
+
+	$: renderBuffers = ({ context: context, width, height }) => {
+		if (bufferLayersVisible == false) return;
+
+		context.save();
+
+		//Coordinate transformations
+		context.translate(width / 2, height / 2);
+		context.scale(z, z);
+		context.translate(posx, posy);
+		context.rotate(phi);
+
+		for (const buffer of bufferLayers) {
+			if (buffer.visible) {
+				if (buffer != currentBufferLayer)
+					context.drawImage(
+						buffer.current,
+						buffer.x - buffer.w / 2,
+						buffer.y - buffer.h / 2,
+						buffer.w,
+						buffer.h
+					);
+			}
+		}
+
+		if (currentBufferLayer != undefined && currentBufferLayer.visible) {
+			//Cursor variable frame.
+			context.strokeStyle = `hsl(${$t / 40}, 100%, 30%)`;
+			context.beginPath();
+			context.rect(
+				currentBufferLayer.x - currentBufferLayer.w / 2,
+				currentBufferLayer.y - currentBufferLayer.h / 2,
+				currentBufferLayer.w,
+				currentBufferLayer.h
+			);
+			context.lineWidth = 10 / z;
+			context.stroke();
+
+			context.drawImage(
+				currentBufferLayer.current,
+				currentBufferLayer.x - currentBufferLayer.w / 2,
+				currentBufferLayer.y - currentBufferLayer.h / 2,
+				currentBufferLayer.w,
+				currentBufferLayer.h
+			);
+		}
+
 		context.restore();
 	};
 
@@ -253,19 +434,21 @@
 			tabindex="0"
 			on:wheel={(e) => applyZoom(e)}
 			on:keydown={(e) => console.log(e)}
-			on:keypress={(e) => applyTranslation(e)}
+			on:keyup={(e) => keyBindings(e)}
 			on:mousedown={(e) => saveDragOrigin(e)}
 			on:mousemove={(e) => updateCursor(e)}
 			on:mouseup={(e) => updateCursor(e)}
 			on:contextmenu={async (e) => {
 				e.preventDefault();
+				execute(e);
+				/*e.preventDefault();
 
-				await DialogBrush.open();
+				await DialogBrush.open();*/
 			}}
 		>
 			<Canvas width={w} height={h}>
 				<Layer render={renderWorkspace} />
-
+				<Layer render={renderBuffers} />
 				<Layer render={renderBrush} />
 			</Canvas>
 
@@ -276,46 +459,177 @@
 						<h4>Channels</h4>
 					</summary>
 					<main>
-						{#each grouplayers as group}
+						{#each groupLayers as group}
 							<section class="layerGroup">
 								<header>
-									<span>{group.title}</span><span>
+									<span class="title"><a>{group.title}</a></span><span>
 										{#if !group.visible}
 											<AwaitButton disabled={true} tip="Show" icon="mdi:show" />
 										{:else}
 											<AwaitButton disabled={true} tip="Hide" icon="mdi:hide" />
 										{/if}
 										<AwaitButton disabled={true} tip="Add" icon="material-symbols:add" />
-										<AwaitButton disabled={true} tip="Add" icon="material-symbols:delete" />
+										<AwaitButton disabled={true} tip="Delete" icon="material-symbols:delete" />
 									</span>
 								</header>
-								{#each group.items as layer}
+								{#each group.items as layer, i}
 									<!--Layer for all visible layers-->
 									<section class="layer">
-										<span>{layer.title}</span>
+										<span class="title"><a>{layer.title}</a></span>
 										<span>
 											{#if !layer.visible}
-												<AwaitButton disabled={true} tip="Show" icon="mdi:show" />
+												<AwaitButton tip="Show" icon="mdi:show" />
 											{:else}
-												<AwaitButton disabled={true} tip="Hide" icon="mdi:hide" />
+												<AwaitButton tip="Hide" icon="mdi:hide" />
 											{/if}
-											<AwaitButton disabled={true} tip="Move Up" icon="raphael:arrowup" />
-											<AwaitButton disabled={true} tip="Move Down" icon="raphael:arrowdown" />
-											<AwaitButton disabled={true} tip="Add" icon="material-symbols:delete" />
+											<AwaitButton
+												disabled={i == 0}
+												op={() => {
+													const tmp = group.items[i - 1];
+													group.items[i - 1] = group.items[i];
+													group.items[i] = tmp;
+												}}
+												tip="Move Up"
+												icon="raphael:arrowup"
+											/>
+											<AwaitButton
+												disabled={i + 1 == group.items.length}
+												op={() => {
+													const tmp = group.items[i];
+													group.items[i] = group.items[i + 1];
+													group.items[i + 1] = tmp;
+												}}
+												tip="Move Down"
+												icon="raphael:arrowdown"
+											/>
+											<AwaitButton
+												op={async () => {
+													layer.title =
+														(await dialog?.prompt('Input filename', layer.title)).prompt ??
+														layer.title;
+													groupLayers = groupLayers;
+												}}
+												tip="Rename"
+												icon="mdi:rename-box"
+											/>
+											<AwaitButton
+												op={() => {
+													group.items.splice(i, 1);
+													groupLayers = groupLayers;
+												}}
+												tip="Delete"
+												icon="material-symbols:delete"
+											/>
 										</span>
 									</section>
 								{/each}
 							</section>
 						{/each}
+						<section class="layerGroup">
+							<header>
+								<span>Buffers</span><span
+									>{#if !bufferLayersVisible}
+										<AwaitButton
+											tip="Show all"
+											op={() => (bufferLayersVisible = true)}
+											icon="mdi:show"
+										/>
+									{:else}
+										<AwaitButton
+											tip="Hide all"
+											op={() => {
+												bufferLayersVisible = false;
+											}}
+											icon="mdi:hide"
+										/>
+									{/if}</span
+								>
+							</header>
+							{#each bufferLayers as bufferLayer, i}
+								<section
+									class="layer"
+									on:click={() => {
+										currentBufferLayer = bufferLayer;
+									}}
+								>
+									<span class="title"
+										><a>{currentBufferLayer == bufferLayer ? '*' : ''}{bufferLayer.title}</a></span
+									>
+									<span>
+										{#if !bufferLayer.visible}
+											<AwaitButton
+												tip="Show"
+												op={() => (bufferLayer.visible = true)}
+												icon="mdi:show"
+											/>
+										{:else}
+											<AwaitButton
+												tip="Hide"
+												op={() => {
+													bufferLayer.visible = false;
+													currentBufferLayer = undefined;
+												}}
+												icon="mdi:hide"
+											/>
+										{/if}
+										<AwaitButton
+											disabled={i == 0}
+											op={() => {
+												const tmp = bufferLayers[i - 1];
+												bufferLayers[i - 1] = bufferLayers[i];
+												bufferLayers[i] = tmp;
+											}}
+											tip="Move Up"
+											icon="raphael:arrowup"
+										/>
+										<AwaitButton
+											disabled={i + 1 == bufferLayers.length}
+											op={() => {
+												const tmp = bufferLayers[i];
+												bufferLayers[i] = bufferLayers[i + 1];
+												bufferLayers[i + 1] = tmp;
+											}}
+											tip="Move Down"
+											icon="raphael:arrowdown"
+										/>
+										<AwaitButton
+											op={async () => {
+												bufferLayer.title =
+													(await dialog?.prompt('Input filename', bufferLayer.title)).prompt ??
+													bufferLayer.title;
+												bufferLayers = bufferLayers;
+											}}
+											tip="Rename"
+											icon="mdi:rename-box"
+										/>
+										<AwaitButton
+											op={() => {
+												if (currentBufferLayer == bufferLayer) currentBufferLayer = undefined;
+
+												bufferLayers.splice(i, 1);
+												bufferLayers = bufferLayers;
+											}}
+											tip="Delete"
+											icon="material-symbols:delete"
+										/>
+									</span>
+								</section>
+							{/each}
+						</section>
 					</main>
 				</details>
 
 				<section class="widget widget-stats">
 					<div>
 						<section>
+							<Icon icon="iconoir:position" />{Math.round(currentBufferLayer?.x ?? 0)};{Math.round(
+								currentBufferLayer?.y ?? 0
+							)}
+						</section>
+						<section>
 							<Icon icon="iconoir:position" />{Math.round(
 								(brush_x - w / 2 - posx * z) / z
-							)};{Math.trunc((brush_y - h / 2 - posy * z) / z)}
+							)};{Math.round((brush_y - h / 2 - posy * z) / z)}
 						</section>
 						<section><Icon icon="fontisto:zoom" />{Math.round(z * 100)}%</section>
 						<section><Icon icon="bx:brush" />{brush_width * 64};{brush_height * 64}</section>
@@ -335,33 +649,40 @@
 						</div>
 					{/each}
 				</section>
-
-				<section class="widget widget-brushes widget-custom-brushes">
-					{#each customBrushes as brush, i}
-						<div
-							title={brush.tip}
-							class:selected={activeBrush === brush}
-							on:click={(e) => (activeBrush = brush)}
-						>
-							<Icon icon={brush.icon} />
-						</div>
-					{/each}
-				</section>
-
-				<section class="widget widget-brushes widget-preset-brushes">
-					{#each presetBrushes as brush, i}
-						<div
-							title={brush.tip}
-							class:selected={activeBrush === brush}
-							on:click={(e) => (activeBrush = brush)}
-						>
-							<Icon icon={brush.icon} />
-						</div>
-					{/each}
-				</section>
+				{#if customBrushes.length != 0}
+					<section class="widget widget-brushes widget-custom-brushes">
+						{#each customBrushes as brush, i}
+							<div
+								title={brush.tip}
+								class:selected={activeBrush === brush}
+								on:click={(e) => (activeBrush = brush)}
+							>
+								<Icon icon={brush.icon} />
+							</div>
+						{/each}
+					</section>
+				{/if}
+				{#if presetBrushes.length != 0}
+					<section class="widget widget-brushes widget-preset-brushes">
+						{#each presetBrushes as brush, i}
+							<div
+								title={brush.tip}
+								class:selected={activeBrush === brush}
+								on:click={(e) => (activeBrush = brush)}
+							>
+								<Icon icon={brush.icon} />
+							</div>
+						{/each}
+					</section>
+				{/if}
 
 				<section class="widget widget-brush-details">
 					<BrushDetails data={activeBrush?.data} />
+				</section>
+
+				<section class="widget widget-buttons">
+					<button>Apply default values</button>
+					<button>Add to presets</button>
 				</section>
 			</div>
 		</div>
@@ -376,6 +697,8 @@
 		<section>
 			<AwaitButton disabled={true} tip="Upscale" icon="mdi:arrow-up-bold" />
 			<AwaitButton disabled={true} tip="Generate" icon="fontisto:export" />
+			<input type="file" accept="image/*" on:change={addImage} />
+
 			<AwaitButton disabled={true} tip="Import reference" icon="fontisto:import" />
 		</section>
 		<!--
@@ -442,7 +765,8 @@
 		opacity: 1;
 	}
 	.widget {
-		min-width: 200px;
+		min-width: 300px;
+		max-width: 300px;
 
 		opacity: 0.7;
 
@@ -482,7 +806,7 @@
 	}
 
 	.canvas {
-		background-color: red;
+		background-color: white;
 		width: 100%;
 		height: 100%;
 	}
@@ -528,6 +852,43 @@
 		div.selected {
 			background-color: black;
 			color: white;
+		}
+	}
+
+	.widget-buttons {
+		gap: 0px;
+		& > button {
+			&:first-of-type {
+				border-top-left-radius: 10px;
+				border-top-right-radius: 10px;
+			}
+
+			&:last-of-type {
+				border-bottom-left-radius: 10px;
+				border-bottom-right-radius: 10px;
+				border: 2px solid black;
+			}
+			color: black;
+			background-color: white;
+			border: none;
+			border: 2px solid black;
+			border-bottom: 0px;
+			&:hover {
+				color: darkslategray;
+			}
+			&:active {
+				color: white;
+				background-color: darkslategray;
+			}
+		}
+	}
+
+	.title {
+		min-width: 0;
+		& > a {
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 	}
 </style>
