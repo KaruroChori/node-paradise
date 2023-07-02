@@ -38,7 +38,7 @@
 	};
 
 	let bufferLayers: BufferLayer[] = [];
-	let currentBufferLayer: BufferLayer | undefined = undefined;
+	let currentBufferLayer: number | undefined = undefined;
 	let bufferLayersVisible: boolean = true;
 
 	const basicBrushes = [
@@ -114,11 +114,11 @@
 		if (e.ctrlKey == false && e.shiftKey == true) {
 			if (currentBufferLayer != undefined && bufferLayersVisible == true) {
 				if (e.deltaY > 0) {
-					currentBufferLayer.w *= 1.1;
-					currentBufferLayer.h *= 1.1;
+					bufferLayers[currentBufferLayer].w *= 1.1;
+					bufferLayers[currentBufferLayer].h *= 1.1;
 				} else {
-					currentBufferLayer.w /= 1.1;
-					currentBufferLayer.h /= 1.1;
+					bufferLayers[currentBufferLayer].w /= 1.1;
+					bufferLayers[currentBufferLayer].h /= 1.1;
 				}
 			} else {
 				if (e.deltaY > 0) {
@@ -136,9 +136,9 @@
 		if (e.shiftKey == true && e.ctrlKey == true) {
 			if (currentBufferLayer != undefined && bufferLayersVisible == true) {
 				if (e.deltaY > 0) {
-					currentBufferLayer.w *= 1.1;
+					bufferLayers[currentBufferLayer].w *= 1.1;
 				} else {
-					currentBufferLayer.w /= 1.1;
+					bufferLayers[currentBufferLayer].w /= 1.1;
 				}
 			} else {
 				if (e.deltaY > 0) {
@@ -152,9 +152,9 @@
 		} else if (e.ctrlKey == true) {
 			if (currentBufferLayer != undefined && bufferLayersVisible == true) {
 				if (e.deltaY > 0) {
-					currentBufferLayer.h *= 1.1;
+					bufferLayers[currentBufferLayer].h *= 1.1;
 				} else {
-					currentBufferLayer.h /= 1.1;
+					bufferLayers[currentBufferLayer].h /= 1.1;
 				}
 			} else {
 				if (e.deltaY > 0) {
@@ -207,6 +207,17 @@
 		} else if (e.key === 'l') {
 			//TODO: open close layer widget
 		}
+		//TODO: With shift work on layers and not buffer layer. With control also move them around.
+		//TODO: Tab/ShiftTab for navigating alt images in the same buffer layer
+		else if (e.key === 'PageUp') {
+			if (currentBufferLayer == undefined && bufferLayers.length != 0)
+				currentBufferLayer = bufferLayers.length - 1;
+			else if (currentBufferLayer != undefined && currentBufferLayer > 0) currentBufferLayer--;
+		} else if (e.key === 'PageDown') {
+			if (currentBufferLayer == undefined && bufferLayers.length != 0) currentBufferLayer = 0;
+			else if (currentBufferLayer != undefined && currentBufferLayer + 1 < bufferLayers.length)
+				currentBufferLayer++;
+		}
 		/*posx = posx + (e.key == '4' ? motion : 0) - (e.key == '6' ? motion : 0);
 		posy = posy + (e.key == '2' ? motion : 0) - (e.key == '8' ? motion : 0);*/
 	};
@@ -216,9 +227,11 @@
 	const saveDragOrigin = (e: MouseEvent) => {
 		if (currentBufferLayer != undefined && bufferLayersVisible == true) {
 			dragXstart =
-				-currentBufferLayer.x + (e.pageX - canvas.getBoundingClientRect().left - w / 2) / z;
+				-bufferLayers[currentBufferLayer].x +
+				(e.pageX - canvas.getBoundingClientRect().left - w / 2) / z;
 			dragYstart =
-				-currentBufferLayer.y + (e.pageY - canvas.getBoundingClientRect().top - h / 2) / z;
+				-bufferLayers[currentBufferLayer].y +
+				(e.pageY - canvas.getBoundingClientRect().top - h / 2) / z;
 		} else {
 			dragXstart = (e.pageX - canvas.getBoundingClientRect().left - w / 2) / z - posx;
 			dragYstart = (e.pageY - canvas.getBoundingClientRect().top - h / 2) / z - posy;
@@ -229,8 +242,8 @@
 		if (e.buttons == 4 && currentBufferLayer != undefined && bufferLayersVisible == true) {
 			brush_x = e.pageX - canvas.getBoundingClientRect().left;
 			brush_y = e.pageY - canvas.getBoundingClientRect().top;
-			currentBufferLayer.x = -(dragXstart - (brush_x - w / 2) / z);
-			currentBufferLayer.y = -(dragYstart - (brush_y - h / 2) / z);
+			bufferLayers[currentBufferLayer].x = -(dragXstart - (brush_x - w / 2) / z);
+			bufferLayers[currentBufferLayer].y = -(dragYstart - (brush_y - h / 2) / z);
 		} else if (e.buttons == 4) {
 			brush_x = e.pageX - canvas.getBoundingClientRect().left;
 			brush_y = e.pageY - canvas.getBoundingClientRect().top;
@@ -258,22 +271,25 @@
 			visible: true
 		};
 		bufferLayers.push(t);
-		currentBufferLayer = t;
+		currentBufferLayer = bufferLayers.length - 1;
 		bufferLayers = bufferLayers;
 	};
 
 	const addImage = (e) => {
-		let reader = new FileReader();
-		let image = new Image();
-		reader.onload = function (event) {
-			image.onload = function () {
-				addBufferLayer(image);
-				notifications.success('Image loaded', 1500);
+		const files = e.target.files;
+
+		for (const i of files) {
+			console.log(i);
+			let reader = new FileReader();
+			let image = new Image();
+			reader.onload = function (event) {
+				image.onload = function () {
+					addBufferLayer(image);
+					notifications.success('Image loaded', 1500);
+				};
+				image.src = event?.target?.result?.toString() ?? '';
+				image.title = e?.target?.files[0].name;
 			};
-			image.src = event?.target?.result?.toString() ?? '';
-			image.title = e?.target?.files[0].name;
-		};
-		for (const i of e.target.files) {
 			reader.readAsDataURL(i);
 		}
 	};
@@ -343,7 +359,7 @@
 
 		for (const buffer of bufferLayers) {
 			if (buffer.visible) {
-				if (buffer != currentBufferLayer)
+				if (buffer != bufferLayers[currentBufferLayer])
 					context.drawImage(
 						buffer.current,
 						buffer.x - buffer.w / 2,
@@ -354,25 +370,21 @@
 			}
 		}
 
-		if (currentBufferLayer != undefined && currentBufferLayer.visible) {
+		if (currentBufferLayer != undefined && bufferLayers[currentBufferLayer].visible) {
+			const buffer = bufferLayers[currentBufferLayer];
 			//Cursor variable frame.
 			context.strokeStyle = `hsl(${$t / 40}, 100%, 30%)`;
 			context.beginPath();
-			context.rect(
-				currentBufferLayer.x - currentBufferLayer.w / 2,
-				currentBufferLayer.y - currentBufferLayer.h / 2,
-				currentBufferLayer.w,
-				currentBufferLayer.h
-			);
+			context.rect(buffer.x - buffer.w / 2, buffer.y - buffer.h / 2, buffer.w, buffer.h);
 			context.lineWidth = 10 / z;
 			context.stroke();
 
 			context.drawImage(
-				currentBufferLayer.current,
-				currentBufferLayer.x - currentBufferLayer.w / 2,
-				currentBufferLayer.y - currentBufferLayer.h / 2,
-				currentBufferLayer.w,
-				currentBufferLayer.h
+				buffer.current,
+				buffer.x - buffer.w / 2,
+				buffer.y - buffer.h / 2,
+				buffer.w,
+				buffer.h
 			);
 		}
 
@@ -617,7 +629,7 @@
 								<section
 									class="layer"
 									on:click={() => {
-										currentBufferLayer = bufferLayer;
+										currentBufferLayer = i;
 									}}
 									on:dblclick={async () => {
 										bufferLayer.title =
@@ -627,7 +639,7 @@
 									}}
 								>
 									<span class="title">
-										<a>{currentBufferLayer == bufferLayer ? '*' : ''}{bufferLayer.title}</a>
+										<a>{currentBufferLayer == i ? '*' : ''}{bufferLayer.title}</a>
 									</span>
 									<span>
 										{#if !bufferLayer.visible}
@@ -668,7 +680,7 @@
 										/>
 										<AwaitButton
 											op={() => {
-												if (currentBufferLayer == bufferLayer) currentBufferLayer = undefined;
+												if (currentBufferLayer == i) currentBufferLayer = undefined;
 
 												bufferLayers.splice(i, 1);
 												bufferLayers = bufferLayers;
@@ -683,19 +695,19 @@
 					{/if}
 				</details>
 
-				<section style="flex-grow:1;">s</section>
+				<section style="flex-grow:1;" />
 				{#if currentBufferLayer != undefined}
 					<section class="widget widget-stats">
 						<div>
 							<section>
 								<Icon icon="iconoir:position" />{Math.round(
-									currentBufferLayer?.x ?? 0
-								)};{Math.round(currentBufferLayer?.y ?? 0)}
+									bufferLayers[currentBufferLayer]?.x ?? 0
+								)};{Math.round(bufferLayers[currentBufferLayer]?.y ?? 0)}
 							</section>
 							<section>
-								<Icon icon="bx:brush" />{Math.round(currentBufferLayer.w)};{Math.round(
-									currentBufferLayer.h
-								)}
+								<Icon icon="bx:brush" />{Math.round(
+									bufferLayers[currentBufferLayer].w
+								)};{Math.round(bufferLayers[currentBufferLayer].h)}
 							</section>
 						</div>
 					</section>
@@ -777,7 +789,7 @@
 		<section>
 			<AwaitButton disabled={true} tip="Upscale" icon="mdi:arrow-up-bold" />
 			<AwaitButton disabled={true} tip="Generate" icon="fontisto:export" />
-			<input type="file" accept="image/*" on:change={addImage} />
+			<input type="file" accept="image/*" on:input={addImage} multiple />
 
 			<AwaitButton disabled={true} tip="Import reference" icon="fontisto:import" />
 		</section>

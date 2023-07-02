@@ -5,7 +5,9 @@ This repository is a svelte wrapper for litegraph.js to provide history, multipl
 Design-wise, it is a mostly implemented code base for visual editors of domain specific node-based languages.  
 Ideally it is going to be integrated in a tauri application.
 
-![](assets/screenshot.png)
+![Node workspace](assets/screenshot.png)
+
+![Canvas workspace](assets/screenshot-2.png)
 
 ### Integration
 
