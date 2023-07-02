@@ -18,9 +18,17 @@ For each channel the sampling method can be either floating or fixed depending i
 ## Shortcuts
 
 * Scroll Wheel: zoom
-* SHIFT + Scroll Wheel: resize brush
-* SHIFT + 3rd Button Click: restore origin and zoom
-* SHIFT + 3d Button Drag: panning
-* RIGHT CLICK: configuration panel for brush
-* SHIFT + RIGHT CLICK: restore brush to default
-* LEFT CLICK: apply brush
+* SHIFT + Scroll Wheel: resize brush or buffer
+* CTRL/CTRL+Shift + Scroll Wheel: resize brush of buffer in only one dimension
+* ~~SHIFT + 3rd Button Click: restore origin and zoom~~ 5 instead
+* SHIFT + 3d Button Drag: panning or moving buffer
+* RIGHT CLICK: execute job
+* ~~SHIFT + RIGHT CLICK: restore brush to default~~ UI button for now
+* ~~LEFT CLICK: apply brush~~ no action on simple click for now
+
+## TODO
+
+* [ ] Clone button for active buffer layer
+* [ ] Sample brush from canvas to active buffer layer
+* [ ] Mask paint/erase brush
+* [ ] Process active buffer (controlnet preprocessing, segmentation etc)

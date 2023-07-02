@@ -44,11 +44,25 @@
 	const basicBrushes = [
 		{
 			tip: 'Cursor',
+			mode: 'cursor',
 			icon: 'tabler:pointer',
-			data: { info: 'Basic cursor.<br/>Use it to select layer.' }
+			data: { info: 'Basic cursor. No further function.' }
+		},
+		{
+			tip: 'Draw mask',
+			mode: 'cursor',
+			icon: 'ic:twotone-brush',
+			data: { info: 'Drawing mask on currently selected mask layer.' }
+		},
+		{
+			tip: 'Erase mask',
+			mode: 'cursor',
+			icon: 'solar:eraser-bold-duotone',
+			data: { info: 'Erasing mask from the currently selected mask layer.' }
 		},
 		{
 			tip: 'Text2Image',
+			mode: 'window',
 			icon: 'mdi:text',
 			data: {
 				info: 'Use the description in the positive and negative prompts to generate a batch of images.'
@@ -56,6 +70,7 @@
 		},
 		{
 			tip: 'Image2Image',
+			mode: 'window',
 			icon: 'ph:image-duotone',
 			data: {
 				info: 'Use the description of the positive and negative prompts to generate a batch of images.<br/>However the current image will be partially reused to bias the generation.'
@@ -63,22 +78,27 @@
 		},
 		{
 			tip: 'Enhance details',
+			mode: 'window',
 			icon: 'material-symbols:camera-enhance',
 			data: { info: 'Utility brush to enhance (or reduce) the detail for the selected region.' }
 		},
 		{
 			tip: 'Add lights',
+			mode: 'window',
+
 			icon: 'iconoir:sun-light',
 			data: { info: 'Introduce lights and shadows in the selected region.' }
 		},
 		{
 			tip: 'Restyle',
+			mode: 'window',
 			icon: 'ic:twotone-style',
 			data: { info: 'Restyle the region base on the prompt or use an image as reference.' }
 		},
 
 		{
 			tip: 'Inpaint',
+			mode: 'window',
 			icon: 'radix-icons:mask-on',
 			data: { info: 'Add new content keeping into account the context around.' }
 		}
@@ -375,18 +395,38 @@
 			snap((brush_y - height / 2) / z - posy, 1)
 		);
 
-		//Cursor variable frame.
-		context.strokeStyle = `hsl(${$t / 40}, 100%, 30%)`;
-		context.beginPath();
-		context.rect(
-			-(brush_width * 64) / 2,
-			-(brush_height * 64) / 2,
-			brush_width * 64,
-			brush_height * 64
-		);
-		context.lineWidth = 5 / z;
-		context.stroke();
+		if (activeBrush.mode == 'window') {
+			//Cursor variable frame.
+			context.strokeStyle = `hsl(${$t / 40}, 100%, 30%)`;
+			context.beginPath();
+			context.rect(
+				-(brush_width * 64) / 2,
+				-(brush_height * 64) / 2,
+				brush_width * 64,
+				brush_height * 64
+			);
+			context.lineWidth = 5 / z;
+			context.stroke();
+		} else if (activeBrush.mode == 'cursor') {
+			context.strokeStyle = `hsl(${$t / 40}, 100%, 30%)`;
+			context.beginPath();
+			context.arc(0, 0, (8 * 4) / z, 0, 2 * Math.PI);
+			context.lineWidth = 5 / z;
 
+			context.stroke();
+
+			context.beginPath();
+			context.arc(0, 0, (8 * 3) / z, 0, Math.PI);
+			context.lineWidth = 3 / z;
+			context.stroke();
+
+			context.beginPath();
+			context.fillStyle = `hsla(${$t / 40}, 100%, 30%,0.5)`;
+
+			context.arc(0, 0, brush_width * 6, 0, 2 * Math.PI, true);
+			context.lineWidth = 3 / z;
+			context.fill();
+		}
 		//Cursor fixed frame. Used to have data shown without scale
 		/*
 		context.fillStyle = `hsla(${$t / 40}, 100%, 0%,0.66)`;
@@ -446,7 +486,7 @@
 				await DialogBrush.open();*/
 			}}
 		>
-			<Canvas width={w} height={h}>
+			<Canvas width={w} height={h} style="cursor: none;">
 				<Layer render={renderWorkspace} />
 				<Layer render={renderBuffers} />
 				<Layer render={renderBrush} />
@@ -474,7 +514,14 @@
 								</header>
 								{#each group.items as layer, i}
 									<!--Layer for all visible layers-->
-									<section class="layer">
+									<section
+										class="layer"
+										on:dblclick={async () => {
+											layer.title =
+												(await dialog?.prompt('Input filename', layer.title)).prompt ?? layer.title;
+											groupLayers = groupLayers;
+										}}
+									>
 										<span class="title"><a>{layer.title}</a></span>
 										<span>
 											{#if !layer.visible}
@@ -503,16 +550,6 @@
 												icon="raphael:arrowdown"
 											/>
 											<AwaitButton
-												op={async () => {
-													layer.title =
-														(await dialog?.prompt('Input filename', layer.title)).prompt ??
-														layer.title;
-													groupLayers = groupLayers;
-												}}
-												tip="Rename"
-												icon="mdi:rename-box"
-											/>
-											<AwaitButton
 												op={() => {
 													group.items.splice(i, 1);
 													groupLayers = groupLayers;
@@ -531,13 +568,30 @@
 					<summary>
 						<h4>Buffers</h4>
 						<span>
-							<AwaitButton
-								tip="Merge"
-								op={() => {
-									notifications.warning('Not implemented yet', 1500);
-								}}
-								icon="ic:round-merge"
-							/>
+							{#if currentBufferLayer != undefined && bufferLayersVisible == true}
+								<AwaitButton
+									tip="Clone"
+									op={() => {
+										notifications.warning('Not implemented yet', 1500);
+									}}
+									icon="cil:clone"
+								/>
+								<AwaitButton
+									tip="Merge to New Mask Layer"
+									op={() => {
+										notifications.warning('Not implemented yet', 1500);
+									}}
+									icon="ic:round-merge"
+								/>
+								<AwaitButton
+									tip="Merge to New Layer"
+									op={() => {
+										notifications.warning('Not implemented yet', 1500);
+									}}
+									icon="ic:round-merge"
+								/>
+							{/if}
+
 							{#if !bufferLayersVisible}
 								<AwaitButton
 									tip="Show all"
@@ -557,79 +611,78 @@
 							{/if}
 						</span>
 					</summary>
-					<main>
-						{#each bufferLayers as bufferLayer, i}
-							<section
-								class="layer"
-								on:click={() => {
-									currentBufferLayer = bufferLayer;
-								}}
-							>
-								<span class="title"
-									><a>{currentBufferLayer == bufferLayer ? '*' : ''}{bufferLayer.title}</a></span
+					{#if bufferLayers.length != 0}
+						<main>
+							{#each bufferLayers as bufferLayer, i}
+								<section
+									class="layer"
+									on:click={() => {
+										currentBufferLayer = bufferLayer;
+									}}
+									on:dblclick={async () => {
+										bufferLayer.title =
+											(await dialog?.prompt('Input filename', bufferLayer.title)).prompt ??
+											bufferLayer.title;
+										bufferLayers = bufferLayers;
+									}}
 								>
-								<span>
-									{#if !bufferLayer.visible}
+									<span class="title">
+										<a>{currentBufferLayer == bufferLayer ? '*' : ''}{bufferLayer.title}</a>
+									</span>
+									<span>
+										{#if !bufferLayer.visible}
+											<AwaitButton
+												tip="Show"
+												op={() => (bufferLayer.visible = true)}
+												icon="mdi:show"
+											/>
+										{:else}
+											<AwaitButton
+												tip="Hide"
+												op={() => {
+													bufferLayer.visible = false;
+													currentBufferLayer = undefined;
+												}}
+												icon="mdi:hide"
+											/>
+										{/if}
 										<AwaitButton
-											tip="Show"
-											op={() => (bufferLayer.visible = true)}
-											icon="mdi:show"
-										/>
-									{:else}
-										<AwaitButton
-											tip="Hide"
+											disabled={i == 0}
 											op={() => {
-												bufferLayer.visible = false;
-												currentBufferLayer = undefined;
+												const tmp = bufferLayers[i - 1];
+												bufferLayers[i - 1] = bufferLayers[i];
+												bufferLayers[i] = tmp;
 											}}
-											icon="mdi:hide"
+											tip="Move Up"
+											icon="raphael:arrowup"
 										/>
-									{/if}
-									<AwaitButton
-										disabled={i == 0}
-										op={() => {
-											const tmp = bufferLayers[i - 1];
-											bufferLayers[i - 1] = bufferLayers[i];
-											bufferLayers[i] = tmp;
-										}}
-										tip="Move Up"
-										icon="raphael:arrowup"
-									/>
-									<AwaitButton
-										disabled={i + 1 == bufferLayers.length}
-										op={() => {
-											const tmp = bufferLayers[i];
-											bufferLayers[i] = bufferLayers[i + 1];
-											bufferLayers[i + 1] = tmp;
-										}}
-										tip="Move Down"
-										icon="raphael:arrowdown"
-									/>
-									<AwaitButton
-										op={async () => {
-											bufferLayer.title =
-												(await dialog?.prompt('Input filename', bufferLayer.title)).prompt ??
-												bufferLayer.title;
-											bufferLayers = bufferLayers;
-										}}
-										tip="Rename"
-										icon="mdi:rename-box"
-									/>
-									<AwaitButton
-										op={() => {
-											if (currentBufferLayer == bufferLayer) currentBufferLayer = undefined;
+										<AwaitButton
+											disabled={i + 1 == bufferLayers.length}
+											op={() => {
+												const tmp = bufferLayers[i];
+												bufferLayers[i] = bufferLayers[i + 1];
+												bufferLayers[i + 1] = tmp;
+											}}
+											tip="Move Down"
+											icon="raphael:arrowdown"
+										/>
+										<AwaitButton
+											op={() => {
+												if (currentBufferLayer == bufferLayer) currentBufferLayer = undefined;
 
-											bufferLayers.splice(i, 1);
-											bufferLayers = bufferLayers;
-										}}
-										tip="Delete"
-										icon="material-symbols:delete"
-									/>
-								</span>
-							</section>
-						{/each}
-					</main>
+												bufferLayers.splice(i, 1);
+												bufferLayers = bufferLayers;
+											}}
+											tip="Delete"
+											icon="material-symbols:delete"
+										/>
+									</span>
+								</section>
+							{/each}
+						</main>
+					{/if}
 				</details>
+
 				<section style="flex-grow:1;">s</section>
 				{#if currentBufferLayer != undefined}
 					<section class="widget widget-stats">
@@ -668,6 +721,7 @@
 								title={brush.tip}
 								class:selected={activeBrush === brush}
 								class="brush"
+								class:brush-cursor={brush.mode == 'cursor'}
 								on:click={(e) => (activeBrush = brush)}
 							>
 								<Icon icon={brush.icon} />
@@ -864,6 +918,8 @@
 	.widget-brushes {
 		align-items: center;
 		& > div {
+			flex-wrap: wrap;
+
 			padding: 5px;
 			flex-direction: row;
 			display: flex;
@@ -872,11 +928,15 @@
 
 		& > div > div {
 			background-color: white;
-			border-radius: 100px;
+			border-radius: 10px;
 			width: 35px;
 			height: 35px;
 			line-height: 40px;
 			text-align: center;
+
+			&.brush-cursor {
+				border-radius: 100px;
+			}
 		}
 
 		& > div > div.selected {
